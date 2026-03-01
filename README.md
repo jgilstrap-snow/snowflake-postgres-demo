@@ -240,6 +240,3 @@ snowflake-postgres-demo/
 
 ---
 
-## License
-
-MIT
