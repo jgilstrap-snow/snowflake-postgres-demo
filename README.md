@@ -83,6 +83,16 @@ A full-stack e-commerce application demonstrating **Snowflake Postgres**, **Open
 
 ---
 
+## Lessons Learned (Cortex Code Users)
+
+This repo includes lessons learned from building this demo. If you're using **Cortex Code**, the `.cortex/AGENTS.md` file is automatically loaded into context with key gotchas and tips.
+
+Detailed guides are in `setup-skills/`:
+- `openflow-postgres-cdc-setup.md` - Step-by-step CDC configuration with troubleshooting
+- `snowflake-postgres-learnings.md` - Snowflake Postgres product overview
+
+---
+
 ## Quick Start
 
 ### Prerequisites
