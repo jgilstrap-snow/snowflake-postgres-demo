@@ -1,178 +1,234 @@
-# Snowflake Postgres Demo: E-commerce CRUD Application
+# Snowflake Postgres CDC Demo
 
-Build a full-stack e-commerce application powered by **Snowflake Postgres** — PostgreSQL running as a fully managed service inside Snowflake.
+A full-stack e-commerce application demonstrating **Snowflake Postgres**, **OpenFlow CDC replication**, **SPCS deployment**, and **Snowflake Intelligence** with semantic views.
 
-![Demo Screenshot](docs/screenshot.png)
-
-## What You'll Learn
-
-- Create a Snowflake Postgres instance from Snowsight
-- Configure network policies for external access
-- Connect using standard Postgres tools (DBeaver, psql)
-- Build a React application that performs CRUD operations
-- Simulate high-concurrency workloads
-
-## Prerequisites
-
-- Snowflake account (Standard edition or higher)
-- ACCOUNTADMIN or SYSADMIN role access
-- Node.js 18+ installed locally
-- A Postgres client (DBeaver, pgAdmin, or psql)
-
-## Demo Architecture
+## Architecture Overview
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                     Your Local Machine                       │
-│  ┌──────────────┐       ┌──────────────────────────────┐    │
-│  │  React App   │──────▶│  Express API Server          │    │
-│  │  (Vite)      │       │  (localhost:3001)            │    │
-│  │  :5173       │       └──────────────┬───────────────┘    │
-│  └──────────────┘                      │                    │
-└────────────────────────────────────────┼────────────────────┘
-                                         │ pg driver (SSL)
-                                         ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    Snowflake Platform                        │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │              Snowflake Postgres Instance              │   │
-│  │  ┌────────────────────────────────────────────────┐  │   │
-│  │  │  ecommerce database                            │  │   │
-│  │  │  ├── customers                                 │  │   │
-│  │  │  ├── products                                  │  │   │
-│  │  │  ├── orders                                    │  │   │
-│  │  │  └── order_items                               │  │   │
-│  │  └────────────────────────────────────────────────┘  │   │
-│  └──────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│   React App     │────▶│   Postgres DB   │────▶│   OpenFlow CDC  │
+│   (SPCS)        │     │   (Snowflake)   │     │   Replication   │
+└─────────────────┘     └─────────────────┘     └────────┬────────┘
+                                                         │
+                                                         ▼
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│   Snowflake     │◀────│  Unified View   │◀────│  CDC Tables     │
+│   Intelligence  │     │  (Analytics)    │     │  (ECOMMERCE_CDC)│
+│   Agent         │     └─────────────────┘     └─────────────────┘
+└─────────────────┘              │
+         │                       ▼
+         │              ┌─────────────────┐
+         └─────────────▶│  Semantic View  │
+                        │  (Cortex)       │
+                        └─────────────────┘
 ```
+
+---
+
+## What's Included
+
+### 1. Postgres Database Setup
+- **Snowflake-managed Postgres instance** with SSL connectivity
+- Database schema with 4 tables:
+  - `customers` (id, email, first_name, last_name, created_at, updated_at)
+  - `products` (id, sku, name, description, price, inventory_count)
+  - `orders` (id, customer_id, status, total_amount, created_at, updated_at)
+  - `order_items` (id, order_id, product_id, quantity, unit_price)
+
+### 2. OpenFlow CDC Replication
+- **Change Data Capture** from Postgres to Snowflake using OpenFlow (NiFi-based)
+- Continuous replication of all 4 tables to `ECOMMERCE_CDC` database
+- CDC metadata columns (`_OPENFLOW_*`) for tracking changes
+- Captures INSERTs, UPDATEs, and DELETEs in real-time
+
+### 3. React E-Commerce App
+- **React + TypeScript + Vite** frontend featuring:
+  - Dashboard with KPI tiles (Customers, Products, Orders, Revenue)
+  - **Live Traffic Simulator** with Light (2 ops/sec), Heavy (15 ops/sec), and Ramp Up (2→50 ops/sec) modes
+  - Real-time latency chart using **Recharts** (color-coded: INSERT=green, SELECT=blue, UPDATE=yellow)
+  - Recent operations list with success/failure indicators
+  - CRUD interfaces for Customers, Products, and Orders
+  - Database health **Monitor** tab showing connection pool, cache hit ratio, transaction stats
+- **Express.js backend** with:
+  - RESTful API endpoints for all CRUD operations
+  - `/api/simulate/burst` endpoint for traffic generation
+  - `/api/monitor` endpoint for Postgres health metrics
+  - Realistic data generation with VIP customer bias and product category weighting
+
+### 4. SPCS Deployment
+- **Multi-stage Dockerfile** for optimized container builds
+- Deployed to **Snowpark Container Services** (SPCS)
+- Network rules and external access integration for Postgres egress
+- Snowflake **secrets** for secure credential management
+- Public HTTPS endpoint via Snowflake ingress
+
+### 5. Unified View in Snowflake
+- Analytics-ready view joining CDC-replicated tables
+- Combines orders, customers, order_items, and products
+- Powers dashboards and reporting on replicated data
+
+### 6. Semantic View for Cortex Analyst
+- YAML-based semantic model defining:
+  - **Dimensions**: order_id, customer_name, customer_email, product_name, order_status
+  - **Measures**: total_amount, quantity, unit_price, revenue aggregations
+  - **Time dimensions**: order_date with date hierarchy
+- Enables natural language queries via Cortex Analyst
+
+### 7. Snowflake Intelligence Agent
+- Cortex Agent configured with the semantic view
+- Natural language query capabilities for:
+  - "What were total sales last week?"
+  - "Who are the top 5 customers by revenue?"
+  - "Show me orders by status"
+
+---
 
 ## Quick Start
 
-### Step 1: Set Up Snowflake Postgres (5 min)
+### Prerequisites
+- Snowflake account with SYSADMIN access
+- Node.js 18+
+- Docker (for SPCS deployment)
 
-1. **Create Network Policy** — Run `setup/01_network_policy.sql` in Snowsight
-   - Update the IP addresses with your home/office IP
-   - Use CIDR notation (e.g., `136.55.6.239/32` for a single IP)
-
-2. **Create Postgres Instance** — Run `setup/02_create_postgres_instance.sql`
-   - **Save the credentials** from the output (hostname, passwords)
-   - Wait 2-5 minutes for the instance to become ACTIVE
-
-3. **Create Schema & Seed Data** — Connect to your Postgres instance and run `setup/03_postgres_schema.sql`
-
-### Step 2: Connect DBeaver (2 min)
-
-1. Create a new PostgreSQL connection:
-   - **Host**: `<your-instance-id>.postgres.snowflake.app`
-   - **Port**: `5432`
-   - **Database**: `ecommerce`
-   - **User**: `app_user`
-   - **Password**: From Step 1
-   - **SSL**: Required (Driver properties → `ssl` = `true`)
-
-2. Test the connection and verify tables exist
-
-### Step 3: Run the React App (3 min)
+### Local Development
 
 ```bash
 cd app
 
-# Copy and configure environment
+# Configure environment
 cp .env.example .env
-# Edit .env with your Postgres connection details
+# Edit .env with your Postgres credentials:
+# PG_HOST=<your-postgres-host>.postgres.snowflake.app
+# PG_PORT=5432
+# PG_DATABASE=postgres
+# PG_USER=<username>
+# PG_PASSWORD=<password>
 
 # Install dependencies
 npm install
 
-# Start the API server (in one terminal)
+# Start API server (terminal 1)
 npm run server
 
-# Start the React dev server (in another terminal)
+# Start React dev server (terminal 2)
 npm run dev
 ```
 
-Open http://localhost:5173 in your browser.
+Open http://localhost:5173
 
-## Demo Walkthrough
+### SPCS Deployment
 
-### Dashboard
-- View real-time stats (customers, products, orders, revenue)
-- Use the **Traffic Simulator** to generate concurrent database operations
-- Watch the **Operation Log** for real-time activity
+```bash
+cd app
 
-### Customers Tab
-- Create new customers with auto-generated data
-- Delete customers
-- See immediate reflection in stats
+# Build Docker image
+docker build --platform linux/amd64 -t ecommerce-demo .
 
-### Products Tab
-- Add products with random pricing and inventory
-- Manage inventory levels
-- Delete products
+# Tag for Snowflake registry
+docker tag ecommerce-demo <registry>/images/ecommerce-demo:latest
 
-### Orders Tab
-- Create orders (randomly assigns customer and product)
-- Update order status (pending → shipped → completed)
-- Watch inventory decrement on order creation
+# Push to registry
+docker push <registry>/images/ecommerce-demo:latest
+
+# Deploy service (see setup/ for SQL scripts)
+```
+
+---
 
 ## Project Structure
 
 ```
 snowflake-postgres-demo/
-├── setup/
-│   ├── 01_network_policy.sql      # Network rules for Postgres access
-│   ├── 02_create_postgres_instance.sql  # Instance creation
-│   └── 03_postgres_schema.sql     # Tables and seed data
 ├── app/
 │   ├── server/
-│   │   └── index.js               # Express API server
+│   │   ├── index.cjs            # Express API server
+│   │   └── dataGenerator.cjs    # Realistic data generation
 │   ├── src/
-│   │   ├── App.tsx                # React application
-│   │   └── App.css                # Styles
-│   ├── .env.example               # Environment template
+│   │   ├── App.tsx              # React application
+│   │   └── App.css              # Styles
+│   ├── Dockerfile               # SPCS container build
+│   ├── .env.example             # Environment template
 │   └── package.json
+├── setup/
+│   ├── 01_network_policy.sql    # Network rules for Postgres access
+│   ├── 02_create_postgres_instance.sql
+│   └── 03_postgres_schema.sql   # Tables and seed data
+├── semantic_view/
+│   └── ecommerce_orders_semantic.yaml  # Cortex Analyst semantic model
 ├── docs/
-│   └── RUNBOOK.md                 # Presenter guide
+│   ├── RUNBOOK.md               # Presenter guide
+│   └── openflow-postgres-cdc-setup.md  # CDC configuration guide
 └── README.md
 ```
 
-## Key Talking Points
+---
 
-### Why Snowflake Postgres?
+## Demo Features
 
-1. **Unified Platform** — Manage Postgres alongside your data warehouse, no separate infrastructure
-2. **Zero Migration** — Standard Postgres protocol, works with existing tools and ORMs
-3. **Enterprise Security** — Inherits Snowflake's security model, network policies, encryption
-4. **Managed Service** — No patching, backups handled automatically, scales on demand
+### Traffic Simulator
+- **Light**: 2 operations/second - gentle steady load
+- **Heavy**: 15 operations/second - stress testing
+- **Ramp Up**: 2→50 operations/second - gradual increase over time
 
-### What This Demo Shows
+### Operation Types
+- `INSERT_CUSTOMER` - Create new customers with realistic names/emails
+- `INSERT_ORDER` - Create orders with VIP customer bias
+- `SELECT` - Read queries (counts, aggregations)
+- `UPDATE_INVENTORY` - Adjust product stock levels
+- `UPDATE_ORDER_STATUS` - Progress orders through fulfillment
 
-- **Postgres Compatibility**: Standard `pg` driver connects without modification
-- **CRUD Operations**: Full create, read, update, delete functionality
-- **Transactions**: Order creation uses transactions with rollback on failure
-- **Concurrency**: Traffic simulator demonstrates handling multiple simultaneous operations
-- **Real-time Updates**: UI reflects database changes immediately
+### Monitor Dashboard
+- Connection pool stats (total, idle, waiting)
+- Database connections (active, idle)
+- Cache hit ratio
+- Transaction stats (commits, rollbacks, inserts, updates, deletes)
+- Per-table statistics (row counts, scans)
+
+---
+
+## Key Concepts Demonstrated
+
+| Concept | Technology | Purpose |
+|---------|------------|---------|
+| Transactional DB | Snowflake Postgres | OLTP workloads, CRUD operations |
+| Change Data Capture | OpenFlow | Real-time replication to Snowflake |
+| Container Hosting | SPCS | Run web apps in Snowflake |
+| Unified Analytics | Snowflake Views | Join replicated data for reporting |
+| Natural Language | Semantic Views | Enable Cortex Analyst queries |
+| AI Assistant | Cortex Agent | Conversational data access |
+
+---
 
 ## Troubleshooting
 
 ### Connection Timeout
-- Verify your IP is in the network policy (CIDR notation: `x.x.x.x/32`)
-- Check that the Postgres instance is ACTIVE: `SHOW POSTGRES SERVICES;`
+- Verify IP allowlist in network policy (CIDR: `x.x.x.x/32`)
+- Check Postgres instance status is ACTIVE
 
 ### Authentication Failed
-- Regenerate credentials if needed
-- Ensure you're using the correct user (`app_user` for the app, `snowflake_admin` for setup)
+- Confirm username/password are correct
+- Check if connecting from allowed IP range
 
-### SSL Errors
-- Ensure `ssl: { rejectUnauthorized: false }` in the connection config
-- DBeaver: Set `ssl=true` in driver properties
+### SPCS Service Pending
+- Check logs: `SELECT SYSTEM$GET_SERVICE_LOGS('service_name', 0, 'app', 100)`
+- Verify external access integration is attached
+- Ensure secrets are properly configured
+
+### CDC Not Replicating
+- Check OpenFlow connector status in Snowsight
+- Verify source tables have primary keys
+- Check for replication lag in connector metrics
+
+---
 
 ## Resources
 
 - [Snowflake Postgres Documentation](https://docs.snowflake.com/en/user-guide/snowflake-postgres/about)
-- [Snowflake Postgres Networking](https://docs.snowflake.com/en/user-guide/snowflake-postgres/postgres-network)
-- [Node.js pg Driver](https://node-postgres.com/)
+- [OpenFlow Documentation](https://docs.snowflake.com/en/user-guide/data-load/openflow)
+- [Snowpark Container Services](https://docs.snowflake.com/en/developer-guide/snowpark-container-services/overview)
+- [Cortex Analyst Semantic Views](https://docs.snowflake.com/en/user-guide/snowflake-cortex/cortex-analyst)
+
+---
 
 ## License
 
