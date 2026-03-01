@@ -96,9 +96,16 @@ Detailed guides are in `setup-skills/`:
 ## Quick Start
 
 ### Prerequisites
-- Snowflake account with SYSADMIN access
-- Node.js 18+
-- Docker (for SPCS deployment)
+
+| Requirement | Purpose | Install Link |
+|-------------|---------|--------------|
+| Snowflake account | SYSADMIN access required | - |
+| Cortex Code CLI | Agent-assisted development | [Installation Guide](https://docs.snowflake.com/en/user-guide/cortex-code/cortex-code-cli) |
+| Node.js 18+ | React app & API server | [nodejs.org](https://nodejs.org/) |
+| npm | Package management (included with Node.js) | - |
+| Docker Desktop | SPCS container deployment | [Download](https://www.docker.com/products/docker-desktop/) |
+| Docker Registry Access | Push images to Snowflake registry | [LIFT Request](https://lift.snowflake.com/lift?id=esc_sc_cat_item&table=sc_cat_item&sys_id=0f4f3758db109510d36db8f3f3961906&searchTerm=docker) (Snowflake employees) |
+| DBeaver | Postgres database client | [Download](https://dbeaver.io/download/) |
 
 ### Local Development
 
