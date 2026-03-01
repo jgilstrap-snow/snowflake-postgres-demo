@@ -1,0 +1,189 @@
+name: ecommerce_orders
+description: E-commerce orders semantic view for analyzing customer orders, products, and sales metrics from Snowflake Postgres CDC pipeline
+
+tables:
+  - name: ORDERS_UNIFIED
+    description: Unified view of orders with customer, product, and line item details
+    base_table:
+      database: ECOMMERCE_CDC
+      schema: DEMO
+      table: ORDERS_UNIFIED
+    
+    dimensions:
+      - name: ORDER_ID
+        description: Unique identifier for each order
+        expr: ORDER_ID
+        data_type: NUMBER
+        unique: true
+        
+      - name: ORDER_STATUS
+        description: Current status of the order (pending, completed, cancelled)
+        expr: ORDER_STATUS
+        data_type: VARCHAR
+        sample_values:
+          - pending
+          - completed
+          - cancelled
+        
+      - name: CUSTOMER_ID
+        description: Unique identifier for the customer
+        expr: CUSTOMER_ID
+        data_type: NUMBER
+        
+      - name: CUSTOMER_EMAIL
+        description: Customer email address
+        expr: CUSTOMER_EMAIL
+        data_type: VARCHAR
+        
+      - name: CUSTOMER_FIRST_NAME
+        description: Customer first name
+        expr: CUSTOMER_FIRST_NAME
+        data_type: VARCHAR
+        
+      - name: CUSTOMER_LAST_NAME
+        description: Customer last name
+        expr: CUSTOMER_LAST_NAME
+        data_type: VARCHAR
+        
+      - name: CUSTOMER_FULL_NAME
+        description: Full name of the customer (first + last)
+        expr: CUSTOMER_FULL_NAME
+        data_type: VARCHAR
+        
+      - name: ORDER_ITEM_ID
+        description: Unique identifier for each order line item
+        expr: ORDER_ITEM_ID
+        data_type: NUMBER
+        
+      - name: PRODUCT_ID
+        description: Unique identifier for the product
+        expr: PRODUCT_ID
+        data_type: NUMBER
+        
+      - name: PRODUCT_SKU
+        description: Product SKU code
+        expr: PRODUCT_SKU
+        data_type: VARCHAR
+        
+      - name: PRODUCT_NAME
+        description: Name of the product
+        expr: PRODUCT_NAME
+        data_type: VARCHAR
+        
+      - name: PRODUCT_DESCRIPTION
+        description: Description of the product
+        expr: PRODUCT_DESCRIPTION
+        data_type: VARCHAR
+
+    time_dimensions:
+      - name: ORDER_CREATED_AT
+        description: Timestamp when the order was created
+        expr: ORDER_CREATED_AT
+        data_type: TIMESTAMP
+        
+      - name: ORDER_UPDATED_AT
+        description: Timestamp when the order was last updated
+        expr: ORDER_UPDATED_AT
+        data_type: TIMESTAMP
+
+    facts:
+      - name: TOTAL_AMOUNT
+        description: Total order amount in dollars
+        expr: total_amount
+        data_type: NUMBER
+        
+      - name: QUANTITY
+        description: Quantity of items in the order line
+        expr: quantity
+        data_type: NUMBER
+        
+      - name: UNIT_PRICE
+        description: Price per unit at time of purchase
+        expr: unit_price
+        data_type: NUMBER
+        
+      - name: LINE_TOTAL
+        description: Total for this line item (quantity * unit_price)
+        expr: LINE_TOTAL
+        data_type: NUMBER
+        
+      - name: PRODUCT_CURRENT_PRICE
+        description: Current price of the product
+        expr: PRODUCT_CURRENT_PRICE
+        data_type: NUMBER
+        
+      - name: PRODUCT_INVENTORY
+        description: Current inventory count for the product
+        expr: PRODUCT_INVENTORY
+        data_type: NUMBER
+
+    metrics:
+      - name: TOTAL_REVENUE
+        description: Sum of all order amounts
+        expr: SUM(total_amount)
+        data_type: NUMBER
+        
+      - name: TOTAL_ORDERS
+        description: Count of unique orders
+        expr: COUNT(DISTINCT ORDER_ID)
+        data_type: NUMBER
+        
+      - name: TOTAL_CUSTOMERS
+        description: Count of unique customers
+        expr: COUNT(DISTINCT CUSTOMER_ID)
+        data_type: NUMBER
+        
+      - name: TOTAL_ITEMS_SOLD
+        description: Total quantity of items sold
+        expr: SUM(quantity)
+        data_type: NUMBER
+        
+      - name: AVERAGE_ORDER_VALUE
+        description: Average order amount
+        expr: AVG(total_amount)
+        data_type: NUMBER
+        
+      - name: TOTAL_LINE_REVENUE
+        description: Sum of all line item totals
+        expr: SUM(LINE_TOTAL)
+        data_type: NUMBER
+
+    filters:
+      - name: COMPLETED_ORDERS
+        description: Only completed orders
+        expr: ORDER_STATUS = 'completed'
+        
+      - name: PENDING_ORDERS
+        description: Only pending orders
+        expr: ORDER_STATUS = 'pending'
+
+verified_queries:
+  - name: total_revenue
+    question: What is the total revenue?
+    verified_by: system
+    verified_at: 1709164800
+    sql: SELECT SUM(total_amount) AS total_revenue FROM ECOMMERCE_CDC.DEMO.ORDERS_UNIFIED
+    
+  - name: orders_by_status
+    question: How many orders are there by status?
+    verified_by: system
+    verified_at: 1709164800
+    sql: SELECT ORDER_STATUS, COUNT(DISTINCT ORDER_ID) AS order_count FROM ECOMMERCE_CDC.DEMO.ORDERS_UNIFIED GROUP BY ORDER_STATUS
+    
+  - name: top_customers
+    question: Who are the top 5 customers by total spend?
+    verified_by: system
+    verified_at: 1709164800
+    sql: SELECT CUSTOMER_FULL_NAME, SUM(total_amount) AS total_spent FROM ECOMMERCE_CDC.DEMO.ORDERS_UNIFIED GROUP BY CUSTOMER_FULL_NAME ORDER BY total_spent DESC LIMIT 5
+    
+  - name: top_products
+    question: What are the top 10 best selling products?
+    verified_by: system
+    verified_at: 1709164800
+    sql: SELECT PRODUCT_NAME, SUM(quantity) AS units_sold FROM ECOMMERCE_CDC.DEMO.ORDERS_UNIFIED GROUP BY PRODUCT_NAME ORDER BY units_sold DESC LIMIT 10
+    
+  - name: daily_orders
+    question: How many orders per day?
+    verified_by: system
+    verified_at: 1709164800
+    sql: SELECT DATE_TRUNC('day', ORDER_CREATED_AT) AS order_date, COUNT(DISTINCT ORDER_ID) AS order_count FROM ECOMMERCE_CDC.DEMO.ORDERS_UNIFIED GROUP BY order_date ORDER BY order_date
