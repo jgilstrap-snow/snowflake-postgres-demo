@@ -272,6 +272,7 @@ nav button.active {
 .preset-button.light .preset-icon { color: var(--success); }
 .preset-button.heavy .preset-icon { color: var(--warning); }
 .preset-button.ramp .preset-icon { color: var(--primary); }
+.preset-button.enterprise .preset-icon { color: var(--danger); }
 
 .preset-icon {
   font-size: 1.5rem;
