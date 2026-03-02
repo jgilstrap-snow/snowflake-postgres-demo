@@ -89,7 +89,6 @@ jobs:
             ALTER SERVICE ${{ env.SERVICE_NAME }}
             FROM SPECIFICATION \$\$
             spec:
-              minInstances: 2
               containers:
               - name: app
                 image: /jack/demo/images/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.tag }}
@@ -121,7 +120,8 @@ jobs:
               - name: app
                 port: 8080
                 public: true
-            \$\$;"
+            \$\$
+            MIN_INSTANCES = 2;"
 
       - name: Verify deployment
         env:
