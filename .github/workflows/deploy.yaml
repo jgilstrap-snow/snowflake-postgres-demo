@@ -57,8 +57,7 @@ jobs:
 
       - name: Install Snowflake CLI
         run: |
-          curl -LsS https://github.com/snowflakedb/snowflake-cli/releases/latest/download/snowflake-cli-linux-x86_64.tar.gz | tar xz
-          sudo mv snowflake-cli /usr/local/bin/snow
+          pip install snowflake-cli
           snow --version
 
       - name: Update SPCS Service
