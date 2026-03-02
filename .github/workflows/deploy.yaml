@@ -60,6 +60,20 @@ jobs:
           pip install snowflake-cli
           snow --version
 
+      - name: Configure Snowflake connection
+        run: |
+          mkdir -p ~/.snowflake
+          cat > ~/.snowflake/config.toml << EOF
+          [connections.default]
+          account = "${{ env.SNOWFLAKE_ACCOUNT }}"
+          user = "${{ env.SNOWFLAKE_USER }}"
+          password = "${{ env.SNOWFLAKE_PASSWORD }}"
+          warehouse = "AICOLLEGE"
+          database = "JACK"
+          schema = "DEMO"
+          role = "SYSADMIN"
+          EOF
+
       - name: Update SPCS Service
         run: |
           snow sql -q "
