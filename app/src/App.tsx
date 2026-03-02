@@ -85,7 +85,7 @@ function App() {
   const [isPlaying, setIsPlaying] = useState(false)
   const [operations, setOperations] = useState<Operation[]>([])
   const [totalOps, setTotalOps] = useState(0)
-  const [loadMode, setLoadMode] = useState<'light' | 'heavy' | 'ramp'>('light')
+  const [loadMode, setLoadMode] = useState<'light' | 'heavy' | 'ramp' | 'enterprise'>('light')
   const [currentOpsPerSec, setCurrentOpsPerSec] = useState(0)
   const [monitorData, setMonitorData] = useState<MonitorData | null>(null)
   const operationIdRef = useRef(0)
@@ -175,11 +175,12 @@ function App() {
     }
   }, [fetchStats])
 
-  const getOpsPerSec = useCallback((mode: 'light' | 'heavy' | 'ramp', rampLevel: number = 0) => {
+  const getOpsPerSec = useCallback((mode: 'light' | 'heavy' | 'ramp' | 'enterprise', rampLevel: number = 0) => {
     switch (mode) {
       case 'light': return 2
       case 'heavy': return 15
       case 'ramp': return [2, 5, 10, 20, 35, 50][Math.min(rampLevel, 5)]
+      case 'enterprise': return 200
       default: return 2
     }
   }, [])
@@ -230,7 +231,7 @@ function App() {
     return cleanup
   }, [isPlaying, loadMode, runSingleOp, getOpsPerSec])
 
-  const startLoad = (mode: 'light' | 'heavy' | 'ramp') => {
+  const startLoad = (mode: 'light' | 'heavy' | 'ramp' | 'enterprise') => {
     setLoadMode(mode)
     setIsPlaying(true)
     log(`Started ${mode} load`)
@@ -476,6 +477,15 @@ function App() {
                   <span className="preset-label">Ramp Up</span>
                   <span className="preset-desc">2→50 ops/sec</span>
                 </button>
+                <button 
+                  className={`preset-button enterprise ${isPlaying && loadMode === 'enterprise' ? 'active' : ''}`}
+                  onClick={() => startLoad('enterprise')}
+                  disabled={isPlaying}
+                >
+                  <span className="preset-icon">⚡</span>
+                  <span className="preset-label">Enterprise</span>
+                  <span className="preset-desc">200 ops/sec</span>
+                </button>
               </div>
 
               {isPlaying && (
@@ -559,7 +569,7 @@ function App() {
         {activeTab === 'customers' && (
           <div className="section">
             <div className="section-header">
-              <h2>Customers ({customers.length})</h2>
+              <h2>Customers ({stats?.customer_count ?? customers.length})</h2>
               <button onClick={createCustomer} disabled={loading}>+ Add Customer</button>
             </div>
             <table>
@@ -590,7 +600,7 @@ function App() {
         {activeTab === 'products' && (
           <div className="section">
             <div className="section-header">
-              <h2>Products ({products.length})</h2>
+              <h2>Products ({stats?.product_count ?? products.length})</h2>
               <button onClick={createProduct} disabled={loading}>+ Add Product</button>
             </div>
             <table>
@@ -623,7 +633,7 @@ function App() {
         {activeTab === 'orders' && (
           <div className="section">
             <div className="section-header">
-              <h2>Orders ({orders.length})</h2>
+              <h2>Orders ({stats?.order_count ?? orders.length})</h2>
               <button onClick={createOrder} disabled={loading}>+ Create Order</button>
             </div>
             <table>
