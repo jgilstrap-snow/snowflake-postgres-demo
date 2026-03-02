@@ -57,11 +57,33 @@ jobs:
 
       - name: Install Snowflake CLI
         run: |
-          curl -LsS https://github.com/snowflakedb/snowflake-cli/releases/latest/download/snowflake-cli-linux-x86_64.tar.gz | tar xz
-          sudo mv snowflake-cli /usr/local/bin/snow
+          pip install snowflake-cli
           snow --version
 
+      - name: Configure Snowflake CLI
+        run: |
+          mkdir -p ~/.snowflake
+          (umask 077 && cat > ~/.snowflake/config.toml << 'EOF'
+          [connections.default]
+          account = "${{ secrets.SNOWFLAKE_ACCOUNT }}"
+          user = "${{ secrets.SNOWFLAKE_USER }}"
+          password = "${{ secrets.SNOWFLAKE_PASSWORD }}"
+          warehouse = "AICOLLEGE"
+          database = "JACK"
+          schema = "DEMO"
+          role = "SYSADMIN"
+          EOF
+          )
+
       - name: Update SPCS Service
+        env:
+          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
+          SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+          SNOWFLAKE_WAREHOUSE: AICOLLEGE
+          SNOWFLAKE_DATABASE: JACK
+          SNOWFLAKE_SCHEMA: DEMO
+          SNOWFLAKE_ROLE: SYSADMIN
         run: |
           snow sql -q "
             ALTER SERVICE ${{ env.SERVICE_NAME }}
@@ -98,10 +120,19 @@ jobs:
               - name: app
                 port: 8080
                 public: true
-            \$\$;
-          " --connection default
+            \$\$;"
+          snow sql -q "ALTER SERVICE ${{ env.SERVICE_NAME }} SET MAX_INSTANCES = 4;"
+          snow sql -q "ALTER SERVICE ${{ env.SERVICE_NAME }} SET MIN_INSTANCES = 2;"
 
       - name: Verify deployment
+        env:
+          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
+          SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+          SNOWFLAKE_WAREHOUSE: AICOLLEGE
+          SNOWFLAKE_DATABASE: JACK
+          SNOWFLAKE_SCHEMA: DEMO
+          SNOWFLAKE_ROLE: SYSADMIN
         run: |
           sleep 10
-          snow sql -q "SHOW SERVICES LIKE 'ECOMMERCE_DEMO_SVC';" --connection default
+          snow sql -q "SHOW SERVICES LIKE 'ECOMMERCE_DEMO_SVC';"
