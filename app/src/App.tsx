@@ -452,7 +452,7 @@ function App() {
         body: JSON.stringify({ status })
       })
       log(`Order #${id} status → ${status}`)
-      fetchOrders()
+      setOrders(prev => prev.map(o => o.id === id ? { ...o, status } : o))
       fetchStats()
     } catch (err) {
       setError('Failed to update order status')
@@ -694,10 +694,9 @@ function App() {
           <div className="section tab-content">
             <div className="section-header">
               <h2>Products ({stats?.product_count ?? products.length})</h2>
-              <button onClick={createProduct} disabled={loading}><Plus size={16} /> Add Product</button>
             </div>
             {loading && products.length === 0 ? (
-              <TableSkeleton rows={5} cols={6} />
+              <TableSkeleton rows={5} cols={5} />
             ) : (
               <table>
                 <thead>
@@ -707,7 +706,6 @@ function App() {
                     <th>Name</th>
                     <th>Price</th>
                     <th>Inventory</th>
-                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -718,7 +716,6 @@ function App() {
                       <td>{p.name}</td>
                       <td>${Number(p.price).toFixed(2)}</td>
                       <td>{p.inventory_count}</td>
-                      <td><button className="delete" onClick={() => deleteProduct(p.id)}><Trash2 size={14} /> Delete</button></td>
                     </tr>
                   ))}
                 </tbody>
