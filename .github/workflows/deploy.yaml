@@ -73,6 +73,7 @@ jobs:
           schema = "DEMO"
           role = "SYSADMIN"
           EOF
+          chmod 0600 ~/.snowflake/config.toml
 
       - name: Update SPCS Service
         run: |
