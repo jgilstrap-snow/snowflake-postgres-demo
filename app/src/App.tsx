@@ -386,35 +386,6 @@ function App() {
     }
   }
 
-  const createProduct = async () => {
-    try {
-      setLoading(true)
-      const res = await fetch(`${API_URL}/products`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      })
-      const data = await res.json()
-      log(`Created product: ${data.name} ($${data.price})`)
-      fetchProducts()
-      fetchStats()
-    } catch (err) {
-      setError('Failed to create product')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const deleteProduct = async (id: number) => {
-    try {
-      await fetch(`${API_URL}/products/${id}`, { method: 'DELETE' })
-      log(`Deleted product ID: ${id}`)
-      fetchProducts()
-      fetchStats()
-    } catch (err) {
-      setError('Failed to delete product')
-    }
-  }
-
   const createOrder = async () => {
     if (customers.length === 0 || products.length === 0) {
       setError('Need customers and products to create orders')
