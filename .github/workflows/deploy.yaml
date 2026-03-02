@@ -1,0 +1,107 @@
+name: Build and Deploy to SPCS
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Image tag (defaults to git SHA)'
+        required: false
+        type: string
+
+env:
+  SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+  SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
+  SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+  REGISTRY: ${{ secrets.SNOWFLAKE_REGISTRY }}
+  IMAGE_NAME: ecommerce-demo
+  SERVICE_NAME: JACK.DEMO.ECOMMERCE_DEMO_SVC
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set image tag
+        id: tag
+        run: |
+          if [ -n "${{ inputs.image_tag }}" ]; then
+            echo "tag=${{ inputs.image_tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=${{ github.sha }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Snowflake Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ env.SNOWFLAKE_USER }}
+          password: ${{ env.SNOWFLAKE_PASSWORD }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./app
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.tag }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Install Snowflake CLI
+        run: |
+          curl -LsS https://github.com/snowflakedb/snowflake-cli/releases/latest/download/snowflake-cli-linux-x86_64.tar.gz | tar xz
+          sudo mv snowflake-cli /usr/local/bin/snow
+          snow --version
+
+      - name: Update SPCS Service
+        run: |
+          snow sql -q "
+            ALTER SERVICE ${{ env.SERVICE_NAME }}
+            FROM SPECIFICATION \$\$
+            spec:
+              containers:
+              - name: app
+                image: /jack/demo/images/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.tag }}
+                env:
+                  PG_HOST: \"${{ secrets.PG_HOST }}\"
+                  PG_PORT: \"5432\"
+                  PG_DATABASE: \"postgres\"
+                  NODE_ENV: \"production\"
+                readinessProbe:
+                  port: 8080
+                  path: \"/api/health\"
+                resources:
+                  requests:
+                    memory: \"0.5Gi\"
+                    cpu: \"0.5\"
+                  limits:
+                    memory: \"2Gi\"
+                    cpu: \"2\"
+                secrets:
+                - snowflakeSecret:
+                    objectName: \"JACK.DEMO.POSTGRES_PASSWORD\"
+                  secretKeyRef: \"username\"
+                  envVarName: \"PG_USER\"
+                - snowflakeSecret:
+                    objectName: \"JACK.DEMO.POSTGRES_PASSWORD\"
+                  secretKeyRef: \"password\"
+                  envVarName: \"PG_PASSWORD\"
+              endpoints:
+              - name: app
+                port: 8080
+                public: true
+            \$\$;
+          " --connection default
+
+      - name: Verify deployment
+        run: |
+          sleep 10
+          snow sql -q "SHOW SERVICES LIKE 'ECOMMERCE_DEMO_SVC';" --connection default
