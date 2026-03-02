@@ -121,6 +121,7 @@ jobs:
                 port: 8080
                 public: true
             \$\$;"
+          snow sql -q "ALTER SERVICE ${{ env.SERVICE_NAME }} SET MAX_INSTANCES = 4;"
           snow sql -q "ALTER SERVICE ${{ env.SERVICE_NAME }} SET MIN_INSTANCES = 2;"
 
       - name: Verify deployment
