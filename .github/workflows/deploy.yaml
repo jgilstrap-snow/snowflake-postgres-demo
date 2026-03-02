@@ -60,22 +60,15 @@ jobs:
           pip install snowflake-cli
           snow --version
 
-      - name: Configure Snowflake connection
-        run: |
-          mkdir -p ~/.snowflake
-          cat > ~/.snowflake/config.toml << EOF
-          [connections.default]
-          account = "${{ env.SNOWFLAKE_ACCOUNT }}"
-          user = "${{ env.SNOWFLAKE_USER }}"
-          password = "${{ env.SNOWFLAKE_PASSWORD }}"
-          warehouse = "AICOLLEGE"
-          database = "JACK"
-          schema = "DEMO"
-          role = "SYSADMIN"
-          EOF
-          chmod 0600 ~/.snowflake/config.toml
-
       - name: Update SPCS Service
+        env:
+          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
+          SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+          SNOWFLAKE_WAREHOUSE: AICOLLEGE
+          SNOWFLAKE_DATABASE: JACK
+          SNOWFLAKE_SCHEMA: DEMO
+          SNOWFLAKE_ROLE: SYSADMIN
         run: |
           snow sql -q "
             ALTER SERVICE ${{ env.SERVICE_NAME }}
@@ -113,9 +106,16 @@ jobs:
                 port: 8080
                 public: true
             \$\$;
-          " --connection default
 
       - name: Verify deployment
+        env:
+          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
+          SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+          SNOWFLAKE_WAREHOUSE: AICOLLEGE
+          SNOWFLAKE_DATABASE: JACK
+          SNOWFLAKE_SCHEMA: DEMO
+          SNOWFLAKE_ROLE: SYSADMIN
         run: |
           sleep 10
-          snow sql -q "SHOW SERVICES LIKE 'ECOMMERCE_DEMO_SVC';" --connection default
+          snow sql -q "SHOW SERVICES LIKE 'ECOMMERCE_DEMO_SVC';"
